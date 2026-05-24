@@ -1,0 +1,10 @@
+{
+  "version": "0.2.1",
+  "tasks": [
+    {
+      "taskLabel": "task-about_us",
+      "appliesTo": "about_us.html",
+      "type": "launch"
+    }
+  ]
+}

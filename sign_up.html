@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Good Margin - إنشاء حساب جديد</title>
+    <link rel="stylesheet" href="GM-style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div id="global-header"></div>
+
+    <h1 class="head1">انضم إلى Good Margin!</h1>
+    <h3 class="head2">أنشئ حسابك الآن وابدأ في تحسين هوامش أرباحك وتحديد أسعار منتجاتك بذكاء.</h3>
+
+    <div class="container-card">
+        
+        <div style="text-align: center; margin-bottom: 25px; color: var(--secondary);">
+            <i class="fa-solid fa-user-plus" style="font-size: 4.5rem; filter: drop-shadow(0 10px 15px rgba(0, 151, 178, 0.2));"></i>
+        </div>
+
+        <form id="signupForm" method="post" action="log_in.html">
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                <div style="flex: 1;">
+                    <label class="field-label" for="Fname">الاسم الأول</label>
+                    <input id="Fname" class="input" type="text" placeholder="الاسم الأول" required>
+                </div>
+                <div style="flex: 1;">
+                    <label class="field-label" for="Lname">اسم العائلة</label>
+                    <input id="Lname" class="input" type="text" placeholder="اسم العائلة" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="field-label" for="Email">البريد الإلكتروني</label>
+                <input id="Email" class="input" type="email" placeholder="example@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label class="field-label" for="pass1">كلمة المرور</label>
+                <input id="pass1" class="input" type="password" placeholder="لا تقل عن 8 خانات" minlength="8" required>
+            </div>
+
+            <div class="form-group">
+                <label class="field-label" for="pass2">تأكيد كلمة المرور</label>
+                <input id="pass2" class="input" type="password" placeholder="أدخل كلمة المرور مجدداً" required>
+                <div id="tip" style="color: var(--error); font-size: 0.85rem; font-weight: 600; margin-top: 5px;"></div>
+            </div>
+
+            <button type="submit" class="button">إنشاء الحساب</button>
+            <button type="reset" class="button button-reset">مسح البيانات</button>
+        </form>
+
+        <p class="head2" style="margin-top: 20px; font-size: 0.95rem;">
+            لديك حساب بالفعل؟ <a href="log_in.html" style="color: var(--primary); font-weight: 600; text-decoration: underline;">سجل دخولك هنا</a>
+        </p>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 جميع الحقوق محفوظة لمنصة Good Margin لتسعير المنتجات الذكي</p>
+    </footer>
+
+    <script>
+        // 1. جلب الهيدر الموحد وحقنه ديناميكياً
+        fetch('header.html')
+            .then(response => {
+                if (!response.ok) throw new Error('فشل جلب ملف الهيدر');
+                return response.text();
+            })
+            .then(data => {
+                document.getElementById('global-header').innerHTML = data;
+                
+                // تحديد صفحة إنشاء الحساب كنشطة إذا وُجدت بالقائمة (تتحكم بها بشكل مرن)
+                const currentLinks = document.querySelectorAll('.navbar-item a');
+                currentLinks.forEach(link => {
+                    if(link.getAttribute('href') === 'sign_up.html') {
+                        link.parentElement.classList.add('active');
+                    }
+                });
+            })
+            .catch(err => console.error(err));
+
+        // 2. التحقق من تطابق كلمات المرور ومنع الإرسال الخاطئ للمتصفح
+        const signupForm = document.getElementById('signupForm');
+        const pass1 = document.getElementById('pass1');
+        const pass2 = document.getElementById('pass2');
+        const tip = document.getElementById('tip');
+
+        signupForm.addEventListener('submit', (e) => {
+            if (pass1.value !== pass2.value) {
+                e.preventDefault(); // إيقاف إرسال النموذج فوراً لوجود خطأ
+                tip.innerText = "⚠️ عذراً، كلمات المرور غير متطابقة. يرجى إعادة التأكد!";
+                pass2.style.borderColor = "var(--error)";
+            } else {
+                tip.innerText = "";
+                pass2.style.borderColor = "var(--primary-light)";
+                alert("🎉 تم إنشاء الحساب بنجاح! سيتم تحويلك لصفحة تسجيل الدخول.");
+            }
+        });
+
+        // إخفاء التنبيه باللون الأحمر بمجرد بدء المطور أو المستخدم بالتصحيح والكتابة مجدداً
+        pass2.addEventListener('input', () => {
+            if(pass2.value === pass1.value) {
+                tip.innerText = "";
+                pass2.style.borderColor = "#e2e8f0";
+            }
+        });
+    </script>
+</body>
+</html>
