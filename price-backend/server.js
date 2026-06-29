@@ -1,139 +1,162 @@
+/**
+ * =============================================================
+ *  Good Margin — Backend Server
+ *  Express.js + SerpAPI for live market price analysis
+ * =============================================================
+ *
+ *  Start: node server.js
+ *  Endpoint: POST http://localhost:5000/api/calculate-price
+ *
+ * =============================================================
+ */
+
 require('dotenv').config();
 const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
+const axios   = require('axios');
+const cors    = require('cors');
 
-const app = express();
+const app  = express();
+const PORT = process.env.PORT || 5000;
 
-// تفعيل الحزم الأساسية للسيرفر
-app.use(cors()); // يتيح لصفحات الـ HTML حريّة الاتصال بالسيرفر محلياً بدون قيود أمنية
-app.use(express.json()); // يسمح للسيرفر بقراءة بيانات الـ JSON القادمة من الفرونت إند
+// ── Middleware ─────────────────────────────────────────────────────
+app.use(cors());          // Allow cross-origin requests from frontend HTML
+app.use(express.json()); // Parse JSON request bodies
 
-// نقطة الاتصال (Endpoint) الرئيسية لحساب السعر الذكي
-app.post('/api/calculate-price', async (req, res) => {
-    try {
-        const { productName } = req.body; // استقبال اسم المنتج من واجهة المستخدم
-
-        if (!productName) {
-            return res.status(400).json({ error: 'الرجاء إدخال اسم المنتج بدقة' });
-        }
-
-        console.log(`🔎 جاري فحص السوق والاتصال بـ SerpApi للمنتج: "${productName}"...`);
-
-        // 1. استدعاء البيانات بالتطابق الحرفي مع الـ Playground الناجح
-        const response = await axios.get('https://serpapi.com/search.json', {
-            params: {
-                engine: 'google',         
-                q: productName,
-                google_domain: 'google.com',
-                gl: 'sa',                 // النطاق: السعودية
-                hl: 'en',                 // اللغة إنجليزي لتأمين البيانات
-                tbm: 'shop',              // فتح تبويب التسوق لـ جلب المنتجات والمنافسين
-                api_key: process.env.SERPAPI_KEY // يعتمد على مفتاحك الصحيح المسجل في ملف .env
-            },
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
-            timeout: 30000 // ⏱️ تم رفع وقت الانتظار إلى 30 ثانية كاملة لضمان عدم انقطاع الطلب
-        });
-
-        const shoppingResults = response.data.shopping_results;
-
-        // طباعة تتبع حجم البيانات في الترمينال فوراً بعد الرد
-        if (!shoppingResults || shoppingResults.length === 0) {
-            console.log("⚠️ تنبيه: نجح الاتصال بالمفتاح ولكن لم تظهر أي نتائج تسوق لهذا الاسم المحدد.");
-            return res.status(404).json({ error: 'لم نجد منتجات مشابهة في السوق حالياً، تأكد من الاسم.' });
-        }
-
-        console.log(`📦 نجح جلب البيانات حياً! تم رصد ${shoppingResults.length} عنصر في مصفوفة السوق.`);
-
-        let totalWeightedPrice = 0;
-        let totalReviewsVolume = 0;
-        let validPricesList = [];
-        let totalPurePrice = 0;
-
-        // 2. معالجة وتصفية البيانات البرمجية بناءً على الهيكل المستلم
-        shoppingResults.forEach(item => {
-            let price = 0;
-            
-            // قراءة السعر الرقمي الصافي المباشر (extracted_price)
-            if (item.extracted_price) {
-                price = parseFloat(item.extracted_price);
-            } else if (item.price) {
-                // حل احتياطي في حال القراءة النصية
-                const priceString = String(item.price).replace(/[^0-9.]/g, '');
-                price = parseFloat(priceString);
-            }
-            
-            // قراءة عدد التقييمات (المبيعات) وتنظيفها من الفواصل
-            let reviews = 0;
-            if (item.reviews) {
-                const reviewsString = String(item.reviews).replace(/[^0-9]/g, '');
-                reviews = parseInt(reviewsString) || 0;
-            }
-
-            // نأخذ الأسعار فوق 5 ريال لضمان استبعاد الملحقات الصغيرة جداً أو الروابط الإعلانية
-            if (price > 5) {
-                validPricesList.push(price);
-                totalPurePrice += price;
-                
-                // التثقيل بالتقييمات: إذا كان المنتج يملك تقييمات نعتمدها كوزن، وإلا نمنحه وزناً بسيطاً = 1
-                const weight = reviews > 0 ? reviews : 1;
-                
-                totalWeightedPrice += (price * weight);
-                totalReviewsVolume += weight;
-            }
-        });
-
-        // تحقق أمني بعد عملية التصفية
-        if (validPricesList.length === 0) {
-            console.log("⚠️ تنبيه: تم تصفية كافة العناصر ولم نجد أسعاراً منطقية فوق 5 ريال.");
-            return res.status(404).json({ error: 'لم نجد أسعار منطقية بعد تصفية عناصر السوق.' });
-        }
-
-        console.log(`✅ عدد المنافسين الحقيقيين المقارنين في المعادلة: ${validPricesList.length}`);
-
-        // حساب أعلى وأقل سعر رُصد في السوق الفعلي للمقارنة
-        const maxPrice = Math.max(...validPricesList);
-        const minPrice = Math.min(...validPricesList);
-        
-        // 3. احتساب السعر الذكي المقترح (بناءً على خطة حماية بديلة مزدوجة)
-        const simpleAverage = Math.round(totalPurePrice / validPricesList.length); // المتوسط الحسابي البسيط
-        
-        // إذا كان هناك حركة مبيعات وتقييمات عالية نطبق المتوسط المرجح المطور، وإلا نتحول للمتوسط البسيط
-        const weightedAverage = totalReviewsVolume > validPricesList.length 
-            ? Math.round(totalWeightedPrice / totalReviewsVolume) 
-            : simpleAverage;
-
-        // تأمين نهائي: نضمن برمجياً أن السعر الذكي الناتج لا يقل عن أقل سعر رُصد بالسوق
-        const smartPrice = weightedAverage >= minPrice ? weightedAverage : simpleAverage;
-
-        console.log(`🎯 النتيجة النهائية المقترحة للواجهة: ${smartPrice} ريال سعودي.`);
-
-        // 4. إرسال الإجابة والتحليلات النهائية إلى واجهة المستخدم (HTML)
-        res.json({
-            success: true,
-            productSearched: productName,
-            marketAnalysis: {
-                smartSuggestedPrice: smartPrice,       // السعر الذكي المرجح
-                highestPriceInMarket: maxPrice,        // أعلى سعر رُصد بالسوق
-                lowestPriceInMarket: minPrice,         // أقل سعر رُصد بالسوق
-                competitorsCount: validPricesList.length   // عدد المنافسين
-            }
-        });
-
-    } catch (error) {
-        if (error.code === 'ECONNABORTED') {
-            console.error('❌ خطأ: انتهت مهلة الـ 30 ثانية والشبكة لم تستجب للطلب.');
-        } else {
-            console.error('❌ خطأ في السيرفر أثناء محاولة جلب البيانات الحيّة:', error.message);
-        }
-        res.status(500).json({ error: 'حدث خطأ في السيرفر أثناء معالجة بيانات السوق الحية.' });
-    }
+// ── Health Check ───────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// تحديد بورت السيرفر وتشغيله
-const PORT = 5000;
+// ── POST /api/calculate-price ──────────────────────────────────────
+// Accepts: { productName: string }
+// Returns: { success, productSearched, marketAnalysis }
+app.post('/api/calculate-price', async (req, res) => {
+  const { productName } = req.body;
+
+  if (!productName || typeof productName !== 'string' || !productName.trim()) {
+    return res.status(400).json({ error: 'الرجاء إدخال اسم المنتج بدقة' });
+  }
+
+  const cleanName = productName.trim();
+  console.log(`🔎 Searching market for: "${cleanName}"`);
+
+  try {
+    // ── Call SerpAPI (Google Shopping) ────────────────────────────
+    const response = await axios.get('https://serpapi.com/search.json', {
+      params: {
+        engine:        'google',
+        q:             cleanName,
+        google_domain: 'google.com',
+        gl:            'sa',     // Saudi Arabia
+        hl:            'en',     // English for consistent data
+        tbm:           'shop',   // Shopping tab
+        api_key:       process.env.SERPAPI_KEY,
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      timeout: 30_000, // 30 second timeout
+    });
+
+    const shoppingResults = response.data.shopping_results;
+
+    if (!shoppingResults || shoppingResults.length === 0) {
+      console.warn('⚠️  No shopping results found for this query.');
+      return res.status(404).json({
+        error: 'لم نجد منتجات مشابهة في السوق حالياً. تأكد من اسم المنتج أو جرب كلمات أكثر شيوعاً.',
+      });
+    }
+
+    console.log(`📦 Raw results fetched: ${shoppingResults.length} items`);
+
+    // ── Parse & Filter Results ─────────────────────────────────────
+    let totalWeightedPrice  = 0;
+    let totalReviewsWeight  = 0;
+    let totalPurePrice      = 0;
+    const validPrices       = [];
+
+    shoppingResults.forEach(item => {
+      // Extract numeric price (prefer pre-extracted, fall back to parsing)
+      let price = 0;
+      if (item.extracted_price) {
+        price = parseFloat(item.extracted_price);
+      } else if (item.price) {
+        const cleaned = String(item.price).replace(/[^0-9.]/g, '');
+        price = parseFloat(cleaned);
+      }
+
+      // Extract review count (used as popularity weight)
+      let reviews = 0;
+      if (item.reviews) {
+        reviews = parseInt(String(item.reviews).replace(/[^0-9]/g, '')) || 0;
+      }
+
+      // Filter out accessories/ads (anything under 5 SAR)
+      if (price > 5) {
+        validPrices.push(price);
+        totalPurePrice += price;
+
+        const weight = reviews > 0 ? reviews : 1;
+        totalWeightedPrice += price * weight;
+        totalReviewsWeight += weight;
+      }
+    });
+
+    if (validPrices.length === 0) {
+      console.warn('⚠️  All items filtered out (prices too low or missing).');
+      return res.status(404).json({
+        error: 'لم نجد أسعاراً منطقية بعد تصفية نتائج السوق. حاول بمنتج مختلف.',
+      });
+    }
+
+    console.log(`✅ Valid competitors found: ${validPrices.length}`);
+
+    // ── Price Algorithm ────────────────────────────────────────────
+    const maxPrice     = Math.max(...validPrices);
+    const minPrice     = Math.min(...validPrices);
+    const simpleAvg    = Math.round(totalPurePrice / validPrices.length);
+
+    // Use weighted average (by reviews) if enough review data exists,
+    // otherwise fall back to simple average for safety
+    const weightedAvg  = totalReviewsWeight > validPrices.length
+      ? Math.round(totalWeightedPrice / totalReviewsWeight)
+      : simpleAvg;
+
+    // Final guard: smart price must never go below market minimum
+    const smartPrice   = weightedAvg >= minPrice ? weightedAvg : simpleAvg;
+
+    console.log(`🎯 Smart suggested price: ${smartPrice} SAR`);
+
+    // ── Response ───────────────────────────────────────────────────
+    return res.json({
+      success:         true,
+      productSearched: cleanName,
+      marketAnalysis:  {
+        smartSuggestedPrice:  smartPrice,
+        highestPriceInMarket: maxPrice,
+        lowestPriceInMarket:  minPrice,
+        competitorsCount:     validPrices.length,
+      },
+    });
+
+  } catch (err) {
+    if (err.code === 'ECONNABORTED') {
+      console.error('❌ Timeout: SerpAPI did not respond within 30 seconds.');
+      return res.status(504).json({ error: 'انتهت مهلة الاتصال بمحرك البحث. حاول مجدداً.' });
+    }
+
+    if (err.response?.status === 401) {
+      console.error('❌ Invalid SerpAPI key.');
+      return res.status(500).json({ error: 'مفتاح API غير صالح. تحقق من ملف .env' });
+    }
+
+    console.error('❌ Server error:', err.message);
+    return res.status(500).json({ error: 'حدث خطأ في الخادم أثناء تحليل بيانات السوق.' });
+  }
+});
+
+// ── Start Server ───────────────────────────────────────────────────
 app.listen(PORT, () => {
-    console.log(`🚀 خادم منصة Good Margin يعمل بنجاح وبأعلى مهلة أمان على البورت: http://localhost:${PORT}`);
+  console.log(`\n🚀 Good Margin server running at http://localhost:${PORT}`);
+  console.log(`   Health check: http://localhost:${PORT}/health\n`);
 });

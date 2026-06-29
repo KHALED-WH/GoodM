@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Good Margin — لوحة التحليلات</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../js/mock-data.js"></script>
+</head>
+<body>
+
+  <div id="global-header"></div>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <p class="loading-text">جاري تحميل بيانات المتجر…</p>
+  </div>
+
+  <div class="filters-bar">
+    <div class="store-pill" id="storePill">
+      <span class="status-dot"></span>
+      <span id="storeName">…</span>
+      <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; color: var(--text-sub);"></i>
+    </div>
+
+    <button class="btn-icon" id="syncBtn" title="تحديث البيانات">
+      <i class="fa-solid fa-rotate"></i>
+    </button>
+
+    <div class="filter-group">
+      <button class="btn-range" data-range="7">7 أيام</button>
+      <button class="btn-range active" data-range="30">30 يوم</button>
+      <button class="btn-range" data-range="90">90 يوم</button>
+
+      <button class="btn-icon" id="alertBtn" title="التنبيهات">
+        <i class="fa-solid fa-bell"></i>
+        <span class="badge" id="alertBadge">0</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="dashboard-wrapper">
+
+    <p class="section-title"><i class="fa-solid fa-bell"></i> تنبيهات تحتاج انتباهك</p>
+    <div class="alerts-list" id="alertsList"></div>
+
+    <p class="section-title mt-sm"><i class="fa-solid fa-gauge-high"></i> مؤشرات الأداء الرئيسية</p>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <p class="section-title"><i class="fa-solid fa-chart-line"></i> التحليل التفصيلي وقنوات التسويق</p>
+    <div class="charts-row three-cols">
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title"><i class="fa-solid fa-chart-line"></i> اتجاه المبيعات والأرباح</span>
+        </div>
+        <div class="chart-body"><canvas id="salesTrendChart"></canvas></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title"><i class="fa-solid fa-chart-pie"></i> الفئات الأكثر مبيعاً</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="categoryDonutChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title"><i class="fa-solid fa-users-viewfinder"></i> مصادر وحساب الزوار</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="marketingChannelsChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="charts-row two-cols">
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title"><i class="fa-solid fa-filter"></i> قمع التحويل</span>
+        </div>
+        <div class="funnel-svg-wrap" id="funnelWrapper"></div>
+        <div class="bottleneck-alert" id="bottleneckAlert">
+          <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px; flex-shrink: 0;"></i>
+          <span id="bottleneckMsg"></span>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title"><i class="fa-solid fa-map-location-dot"></i> التوزيع الجغرافي للمبيعات (تفاعلي حقيقي)</span>
+          <button class="sort-btn" id="resetMapFilter" style="display:none; font-size:0.7rem; padding: 2px 10px;">إلغاء الفلترة الجغرافية</button>
+        </div>
+        <div class="ksa-map-container" id="mapWrap">
+          <div id="ksa-real-map"></div>
+          <div class="map-legend" id="mapLegend"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="section-title"><i class="fa-solid fa-boxes-stacked"></i> أداء المنتجات</p>
+    <div class="chart-card" style="margin-bottom: 28px;">
+      <div class="chart-header">
+        <span class="chart-title"><i class="fa-solid fa-list-ol"></i> تفاصيل المنتجات</span>
+        <div class="sort-controls">
+          <button class="sort-btn active" data-sort="top">الأكثر مبيعاً</button>
+          <button class="sort-btn" data-sort="worst">الأقل مبيعاً</button>
+          <button class="sort-btn" data-sort="views">الأعلى زيارةً</button>
+        </div>
+      </div>
+      <div class="products-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>المنتج</th>
+              <th>الفئة</th>
+              <th>الزيارات</th>
+              <th>أُضيف للسلة</th>
+              <th>المبيعات</th>
+              <th>معدل التحويل</th>
+              <th>التقييم</th>
+              <th>الإيراد</th>
+            </tr>
+          </thead>
+          <tbody id="productsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="last-updated-bar">
+      آخر تحديث: <span id="lastUpdated">—</span>
+    </div>
+
+  </div>
+
+  <footer style="text-align: center; padding: 20px; color: var(--text-sub); font-size: 0.78rem; border-top: 1px solid var(--border); margin-top: 20px;">
+    <p>&copy; 2026 Good Margin — منصة التسعير الذكي</p>
+  </footer>
+
+  <script src="../js/dashboard.js"></script>
+
+</body>
+</html>

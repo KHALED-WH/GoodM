@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Good Margin — من نحن</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div id="global-header"></div>
+
+  <h1 class="page-title">من نحن</h1>
+  <h3 class="page-subtitle">
+    منصة Good Margin هي شريكك الرقمي لمساعدتك كتاجر مبتدئ في تحديد الأسعار المثالية لمنتجاتك بناءً على خوارزميات ذكية تقرأ السوق وتضمن لك أعلى هامش ربح.
+  </h3>
+
+  <!-- Working Hours -->
+  <div class="card">
+    <h3 class="text-center" style="color: var(--primary); margin-bottom: 16px;">
+      <i class="fa-solid fa-clock-rotate-left"></i> أوقات عمل خدمة العملاء
+    </h3>
+
+    <div class="hours-grid">
+      <div class="time-card">
+        <h4>من الأحد إلى الخميس</h4>
+        <p>من 9:00 ص إلى 3:00 م</p>
+      </div>
+      <div class="time-card">
+        <h4>الجمعة والسبت</h4>
+        <p>من 4:00 م إلى 7:00 م</p>
+      </div>
+      <div class="time-card full-width">
+        <h4 style="color: var(--secondary);">
+          <i class="fa-solid fa-bolt"></i> البريد الإلكتروني
+        </h4>
+        <p>رد خلال 24 ساعة على مدار الأسبوع</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback Form -->
+  <div class="card">
+    <h3 class="text-center" style="color: var(--primary); margin-bottom: 20px;">
+      <i class="fa-solid fa-comment-dots"></i> شاركنا رأيك وملاحظاتك
+    </h3>
+
+    <form id="feedbackForm">
+      <div class="form-group">
+        <label class="field-label" for="feedback">رسالتك أو اقتراحك:</label>
+        <textarea
+          id="feedback"
+          rows="5"
+          placeholder="اكتب رأيك هنا لمساعدتنا في تطوير المنصة..."
+          required
+        ></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">إرسال الملاحظات</button>
+    </form>
+  </div>
+
+  <footer>
+    <p>&copy; 2026 جميع الحقوق محفوظة لمنصة Good Margin</p>
+  </footer>
+
+  <script>
+    // ── Header ─────────────────────────────────────────────────────
+    fetch('header.html')
+      .then(r => r.text())
+      .then(html => {
+        document.getElementById('global-header').innerHTML = html;
+        document.querySelectorAll('.navbar-item a').forEach(link => {
+          if (link.getAttribute('href') === 'about.html') link.parentElement.classList.add('active');
+        });
+      })
+      .catch(console.error);
+
+    // ── Feedback Form ──────────────────────────────────────────────
+    document.getElementById('feedbackForm').addEventListener('submit', e => {
+      e.preventDefault();
+      alert('🎉 شكراً على ملاحظاتك القيمة! تم استلام رسالتك بنجاح.');
+      document.getElementById('feedback').value = '';
+    });
+  </script>
+
+</body>
+</html>

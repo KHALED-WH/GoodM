@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Good Margin — تسعير المنتج الذكي</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div id="global-header"></div>
+
+  <h1 class="page-title">تسعير المنتج الذكي</h1>
+  <h3 class="page-subtitle">
+    أدخل تفاصيل منتجك، وسيقوم نظامنا بتحليل مبيعات السوق الحية واقتراح السعر العادل لضمان أعلى هامش ربح.
+  </h3>
+
+  <div class="card">
+
+    <i class="fa-solid fa-chart-line icon-hero text-primary"></i>
+
+    <form id="pricingForm">
+
+      <div class="form-group">
+        <label class="field-label" for="productName">اسم المنتج بدقة</label>
+        <input
+          id="productName"
+          class="input"
+          type="text"
+          placeholder="مثال: ساعة كلاسيك سوداء"
+          required
+          autocomplete="off"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="field-label" for="quantityType">نوع الكمية</label>
+        <select id="quantityType" required>
+          <option value="">اختر نوع الكمية...</option>
+          <option value="One Piece">قطعة واحدة (One Piece)</option>
+          <option value="Package">حزمة / كرتون (Package)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="field-label" for="productCost">تكلفة المنتج عليك (ريال سعودي)</label>
+        <input id="productCost" class="input" type="number" min="0" step="0.01" placeholder="0.00" required>
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn btn-primary">
+        تحليل السوق واحتساب السعر الذكي
+      </button>
+      <button
+        type="reset"
+        class="btn btn-ghost"
+        onclick="document.getElementById('result').classList.remove('visible')"
+      >
+        إعادة تعيين الحقول
+      </button>
+
+    </form>
+
+    <!-- Result Section -->
+    <div id="result" class="result-box">
+      <h3>📊 نتائج تحليل المحرك الذكي</h3>
+
+      <div class="result-highlight">
+        <p class="result-label">السعر الآمن والمقترح للبيع:</p>
+        <p class="result-value"><span id="suggestedPrice">0</span> ريال</p>
+      </div>
+
+      <div class="result-row">
+        <p>
+          <i class="fa-solid fa-arrow-trend-up" style="color: var(--error);"></i>
+          أعلى سعر رُصد: <strong id="highPrice">0</strong> ريال
+        </p>
+        <p>
+          <i class="fa-solid fa-arrow-trend-down" style="color: var(--secondary);"></i>
+          أقل سعر رُصد: <strong id="lowPrice">0</strong> ريال
+        </p>
+        <p>
+          <i class="fa-solid fa-users" style="color: var(--text-sub);"></i>
+          المنافسين: <strong id="compCount">0</strong>
+        </p>
+      </div>
+
+      <div id="profitMsg" class="profit-message"></div>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>&copy; 2026 جميع الحقوق محفوظة لمنصة Good Margin</p>
+  </footer>
+
+  <script>
+    // ── Header ─────────────────────────────────────────────────────
+    fetch('header.html')
+      .then(r => r.text())
+      .then(html => {
+        document.getElementById('global-header').innerHTML = html;
+        document.querySelectorAll('.navbar-item a').forEach(link => {
+          if (link.getAttribute('href') === 'pricing.html') link.parentElement.classList.add('active');
+        });
+      })
+      .catch(console.error);
+
+    // ── Pricing Form ───────────────────────────────────────────────
+    const form      = document.getElementById('pricingForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const result    = document.getElementById('result');
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const productName = document.getElementById('productName').value.trim();
+      const productCost = parseFloat(document.getElementById('productCost').value);
+
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تحليل السوق...';
+      submitBtn.disabled = true;
+
+      try {
+        const response = await fetch('http://localhost:5000/api/calculate-price', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productName }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert(data.error || 'حدث خطأ غير متوقع.');
+          return;
+        }
+
+        const market = data.marketAnalysis;
+
+        document.getElementById('suggestedPrice').textContent = market.smartSuggestedPrice;
+        document.getElementById('highPrice').textContent      = market.highestPriceInMarket;
+        document.getElementById('lowPrice').textContent       = market.lowestPriceInMarket;
+        document.getElementById('compCount').textContent      = market.competitorsCount;
+
+        const profit    = market.smartSuggestedPrice - productCost;
+        const profitEl  = document.getElementById('profitMsg');
+
+        if (profit > 0) {
+          profitEl.className = 'profit-message positive';
+          profitEl.innerHTML = `🎉 صافي ربحك المتوقع: <strong>${profit.toFixed(2)} ريال سعودي</strong>`;
+        } else {
+          profitEl.className = 'profit-message negative';
+          profitEl.innerHTML = `⚠️ سعر السوق أقل من تكلفتك! خسارة محتملة: <strong>${Math.abs(profit).toFixed(2)} ريال</strong>`;
+        }
+
+        result.classList.add('visible');
+
+      } catch (err) {
+        console.error('Backend connection error:', err);
+        alert('فشل الاتصال بالخادم. تأكد أن السيرفر يعمل على المنفذ 5000.');
+      } finally {
+        submitBtn.textContent = 'تحليل السوق واحتساب السعر الذكي';
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+
+</body>
+</html>
