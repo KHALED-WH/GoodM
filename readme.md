@@ -155,6 +155,7 @@ goodmargin/
     │
     ├── js/
     │   └── mock-data.js        ← Simulated store data (replace with real API)
+    │   └── dashboard.js        
     │
     └── pages/
         ├── header.html         ← Shared navigation header (loaded dynamically)
