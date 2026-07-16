@@ -1,11 +1,12 @@
 /**
  * =============================================================
- *  Good Margin — Backend Server
- *  Express.js + SerpAPI for live market price analysis
+ * Good Margin — Backend Server (Integrated Frontend)
+ * Express.js + SerpAPI for live market price analysis
  * =============================================================
  *
- *  Start: node server.js
- *  Endpoint: POST http://localhost:5000/api/calculate-price
+ * Start: npm run dev
+ * Endpoint: POST http://localhost:5000/api/calculate-price
+ * Frontend: http://localhost:5000
  *
  * =============================================================
  */
@@ -14,13 +15,24 @@ require('dotenv').config();
 const express = require('express');
 const axios   = require('axios');
 const cors    = require('cors');
+const path    = require('path'); 
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
 // ── Middleware ─────────────────────────────────────────────────────
-app.use(cors());          // Allow cross-origin requests from frontend HTML
-app.use(express.json()); // Parse JSON request bodies
+app.use(cors());          
+app.use(express.json()); 
+
+// ── تشغيل ملفات الواجهة الأمامية (Static Files) ──────────────────────
+// تفعيل السيرفر ليقرأ المجلد الرئيسي ومجلد الـ src كملفات ثابتة
+app.use(express.static(path.join(__dirname, '../'))); 
+app.use('/src', express.static(path.join(__dirname, '../src')));
+
+// توجيه الرابط الرئيسي تلقائياً للمسار الصحيح لكي تعمل جميع ملفات الـ CSS والـ JS بالنسبية الصحيحة
+app.get('/', (req, res) => {
+  res.redirect('/src/pages/index.html');
+});
 
 // ── Health Check ───────────────────────────────────────────────────
 app.get('/health', (req, res) => {
@@ -28,8 +40,6 @@ app.get('/health', (req, res) => {
 });
 
 // ── POST /api/calculate-price ──────────────────────────────────────
-// Accepts: { productName: string }
-// Returns: { success, productSearched, marketAnalysis }
 app.post('/api/calculate-price', async (req, res) => {
   const { productName } = req.body;
 
@@ -41,21 +51,20 @@ app.post('/api/calculate-price', async (req, res) => {
   console.log(`🔎 Searching market for: "${cleanName}"`);
 
   try {
-    // ── Call SerpAPI (Google Shopping) ────────────────────────────
     const response = await axios.get('https://serpapi.com/search.json', {
       params: {
         engine:        'google',
         q:             cleanName,
         google_domain: 'google.com',
-        gl:            'sa',     // Saudi Arabia
-        hl:            'en',     // English for consistent data
-        tbm:           'shop',   // Shopping tab
+        gl:            'sa',     
+        hl:            'en',     
+        tbm:           'shop',   
         api_key:       process.env.SERPAPI_KEY,
       },
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
-      timeout: 30_000, // 30 second timeout
+      timeout: 30_000, 
     });
 
     const shoppingResults = response.data.shopping_results;
@@ -67,16 +76,12 @@ app.post('/api/calculate-price', async (req, res) => {
       });
     }
 
-    console.log(`📦 Raw results fetched: ${shoppingResults.length} items`);
-
-    // ── Parse & Filter Results ─────────────────────────────────────
     let totalWeightedPrice  = 0;
     let totalReviewsWeight  = 0;
     let totalPurePrice      = 0;
     const validPrices       = [];
 
     shoppingResults.forEach(item => {
-      // Extract numeric price (prefer pre-extracted, fall back to parsing)
       let price = 0;
       if (item.extracted_price) {
         price = parseFloat(item.extracted_price);
@@ -85,13 +90,11 @@ app.post('/api/calculate-price', async (req, res) => {
         price = parseFloat(cleaned);
       }
 
-      // Extract review count (used as popularity weight)
       let reviews = 0;
       if (item.reviews) {
         reviews = parseInt(String(item.reviews).replace(/[^0-9]/g, '')) || 0;
       }
 
-      // Filter out accessories/ads (anything under 5 SAR)
       if (price > 5) {
         validPrices.push(price);
         totalPurePrice += price;
@@ -103,31 +106,19 @@ app.post('/api/calculate-price', async (req, res) => {
     });
 
     if (validPrices.length === 0) {
-      console.warn('⚠️  All items filtered out (prices too low or missing).');
-      return res.status(404).json({
-        error: 'لم نجد أسعاراً منطقية بعد تصفية نتائج السوق. حاول بمنتج مختلف.',
-      });
+      return res.status(404).json({ error: 'لم نجد أسعاراً منطقية بعد تصفية نتائج السوق. حاول بمنتج مختلف.' });
     }
 
-    console.log(`✅ Valid competitors found: ${validPrices.length}`);
-
-    // ── Price Algorithm ────────────────────────────────────────────
     const maxPrice     = Math.max(...validPrices);
     const minPrice     = Math.min(...validPrices);
     const simpleAvg    = Math.round(totalPurePrice / validPrices.length);
 
-    // Use weighted average (by reviews) if enough review data exists,
-    // otherwise fall back to simple average for safety
     const weightedAvg  = totalReviewsWeight > validPrices.length
       ? Math.round(totalWeightedPrice / totalReviewsWeight)
       : simpleAvg;
 
-    // Final guard: smart price must never go below market minimum
     const smartPrice   = weightedAvg >= minPrice ? weightedAvg : simpleAvg;
 
-    console.log(`🎯 Smart suggested price: ${smartPrice} SAR`);
-
-    // ── Response ───────────────────────────────────────────────────
     return res.json({
       success:         true,
       productSearched: cleanName,
@@ -140,23 +131,15 @@ app.post('/api/calculate-price', async (req, res) => {
     });
 
   } catch (err) {
-    if (err.code === 'ECONNABORTED') {
-      console.error('❌ Timeout: SerpAPI did not respond within 30 seconds.');
-      return res.status(504).json({ error: 'انتهت مهلة الاتصال بمحرك البحث. حاول مجدداً.' });
-    }
-
-    if (err.response?.status === 401) {
-      console.error('❌ Invalid SerpAPI key.');
-      return res.status(500).json({ error: 'مفتاح API غير صالح. تحقق من ملف .env' });
-    }
-
-    console.error('❌ Server error:', err.message);
+    if (err.code === 'ECONNABORTED') return res.status(504).json({ error: 'انتهت مهلة الاتصال بمحرك البحث. حاول مجدداً.' });
+    if (err.response?.status === 401) return res.status(500).json({ error: 'مفتاح API غير صالح. تحقق من ملف .env' });
     return res.status(500).json({ error: 'حدث خطأ في الخادم أثناء تحليل بيانات السوق.' });
   }
 });
 
 // ── Start Server ───────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🚀 Good Margin server running at http://localhost:${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/health\n`);
+  console.log(`\n🚀 Good Margin Integrated Server Running!`);
+  console.log(`   👉 View Website & Dashboard: http://localhost:${PORT}`);
+  console.log(`   👉 API Health check: http://localhost:${PORT}/health\n`);
 });
