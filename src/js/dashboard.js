@@ -16,16 +16,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ── Header ─────────────────────────────────────────────────────
+// ── Header ─────────────────────────────────────────────────────
+// ── Header ─────────────────────────────────────────────────────
 function loadHeader() {
-  fetch('header.html')
-    .then(r => r.text())
+  fetch('/src/pages/header.html') 
+    .then(r => {
+      if (!r.ok) throw new Error('Network response was not ok');
+      return r.text();
+    })
     .then(html => {
       document.getElementById('global-header').innerHTML = html;
       document.querySelectorAll('.navbar-item a').forEach(a => {
         if (a.getAttribute('href') === 'index.html') a.parentElement.classList.add('active');
       });
     })
-    .catch(() => {});
+    .catch(err => console.error('Error loading header:', err));
 }
 
 // ── Initialize Real Map ─────────────────────────────────────────
